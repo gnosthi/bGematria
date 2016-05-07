@@ -1,0 +1,166 @@
+#!/usr/bin/env bash
+
+############################################
+#              bGemCalc                    #
+#          Gematria Calculator             #
+#                v 0.3                     #
+############################################
+#Written by: Fr. Jivamukti                 #
+#May 2016                                  #
+############################################
+
+############################################
+#               Change Log                 #
+############################################
+# 0.3 - Fixed bug with doubles only getting#
+# counted once if more than 1 appears      #
+# 0.3 - Created precheck for proper opts.  #
+#                                          #
+# 0,2 - add clean log option               #
+# 0.2 - added support for double letters   #
+#                                          #
+# 0.1 - Initial write out                  #
+############################################
+
+############################################
+## Ideas for expanding functionality	  ##
+##!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!##
+## Ability to expand multiple words into  ##
+## array elements and compute each one    ##
+##                                        ##
+## MULTI VALUE Support for different      ##
+## Value systems                          ##
+##                                        ##
+## Ability to create a word db and match  ##
+## Word values                            ##
+## Ability to add word to word db         ##
+##                                        ##
+## Ability to read words from file and    ##
+## calculate each word and total          ##
+## Select only unique words from file     ##
+##                                        ##
+## Ability to print out to stdout value   ##
+## associative array for specified system ##
+############################################			
+
+print_usage()
+{
+  echo "Usage: $(basename $0)"
+  echo "-d | --debug: turn debugging on"
+  echo "-l | --log: to be used during debugging to output to log file"
+  echo "-c | --clean-log: remove previous log data" 
+  echo "-w | --word: specify the word to analyse"
+  exit 0
+}
+
+
+if [ "${1}" != "" ] && [ "${1}" != "-h" ] && [ "${1}" != "--help" ] && [ "${1}" != "-d" ] && [ "${1}" != "--debug" ] && [ "${1}" != "-c" ] && [ "${1}" != "--clean-log" ] && [ "${1}" != "-w" ] && [ "${1}" != "--word" ]; then
+  print_usage
+fi
+
+if [ -z "${1}" ] || [ "${1}" "-h" ] || [ "${1}" "--help" ]; then
+  print_usage
+fi
+
+if [ "${1}" = "--debug" ] || [ "${1}" = "-d" ]; then
+  shift
+  DEBUG="true"
+  set -x 
+fi
+
+if [ "${DEBUG}" = "true" ] && [ "${1}" != "-l" ] && [ "${1}" != "--log" ] && [ "${1}" != "-w" ] && [ "${1}" != "--word" ]; then
+  print_usage
+fi
+
+if [ "${DEBUG}" = "true" ]; then
+  if [ "${1}" = "--log" ] || [ "${1}" = "-l" ]; then
+    LOGGING="true"
+    shift
+    DEBUGLOG=/tmp/$(basename $0.err) 
+    echo "Debugging on..."
+    echo "Logging to /tmp/$(basename $0.err)" 
+    echo "DEBUG INFO START $(date)" > $DEBUGLOG
+    exec 2> $DEBUGLOG
+  else
+    echo "Debugging on..."
+  fi
+fi
+
+if [ "${LOGGING}" = "true" ] && [ "${1}" != "-w" ] && [ "${1}" != "--word" ]; then
+  print_usage
+fi
+
+
+if [ "${1}" = "-c" ] || [ "${1}" = "--clean-log" ]; then
+ echo "Removing debug log"
+ if [ -e /tmp/$(basename $0.err) ]; then
+   rm -f /tmp/$(basename $0.err) 
+  if [ ! -e /tmp/$(basename $0.err) ]; then
+   echo "Complete"
+   exit 0
+  else
+   echo "Failed" 
+   exit 1
+  fi
+ else
+  echo "No debug log found"
+  exit 0
+ fi
+fi
+
+
+#Declare an associative array for VALUES.
+declare -A VALUES
+
+VALUES=( ["a"]=1 ["b"]=2 ["g"]=3 ["d"]=4 ["h"]=5 ["e"]=5 ["v"]=6 ["u"]=6 ["z"]=7 ["ch"]=8 ["t"]=9 ["y"]=10 ["i"]=10 ["j"]=10 ["k"]=20 ["l"]=30 ["m"]=40 ["n"]=50 ["s"]=60 ["Aa"]=70 ["o"]=70 ["p"]=80 ["f"]=80 ["tz"]=90 ["q"]=100 ["r"]=200 ["sh"]=300 ["th"]=400 ["A"]=1 ["B"]=2 ["G"]=3 ["D"]=4 ["H"]=5 ["E"]=5 ["V"]=6 ["U"]=6 ["Z"]=7 ["Ch"]=8 ["T"]=9 ["Y"]=10 ["I"]=10 ["J"]=10 ["K"]=20 ["L"]=30 ["M"]=40 ["N"]=50 ["S"]=60 ["aa"]=70 ["O"]=70 ["P"]=80 ["F"]=80 ["Tz"]=90 ["Q"]=100 ["R"]=200 ["Sh"]=300 ["Th"]=400 )
+
+TOTAL=0 
+
+if [ "${1}" = "--word" ] || [ "${1}" = "-w" ]; then
+ shift
+ if [ ! -z "${1}" ]; then
+  declare -r WORD=("${1}") #Declare and set WORD to readonly 
+ else
+  echo "Need to put a word"
+  exit 1
+ fi
+fi
+
+#Set S_WORD to word. S_WORD is editable.
+S_WORD="$WORD"
+
+#Check for double characters occuring in $WORD via $S_WORD, add their value and remove the Character from S_WORD
+for double in "${!VALUES[@]}"; do
+ if [ "${#double}" -gt 1 ]; then
+ #  if [ ! -z `echo "$S_WORD" | grep "$double"` ]; then
+      while [ ! -z `echo "$S_WORD" | grep "$double"` ]; do
+      	let TOTAL+="${VALUES[$double]}"
+      	S_WORD=$(echo $S_WORD | sed "s/$double//")
+      done
+  # fi
+ fi
+done
+
+
+#Seperate the remaining characters of S_WORD into individual array elements
+LETTERS=$(echo $S_WORD | fold -w1)
+
+#Iterate over remaining characters and add their value.
+if [ ${#LETTERS} -gt 0 ]; then
+ for single in ${LETTERS[@]}; do
+  for value in "${!VALUES[@]}"; do
+   if [ "$single" = "$value" ]; then
+    let TOTAL+="${VALUES[$value]}"
+   fi
+  done
+ done
+fi
+
+if [ $TOTAL -gt 0 ]; then
+ echo ""
+ echo "$WORD = $TOTAL"
+ exit 0
+else
+ echo "TOTAL has 0 for a value"
+ exit 1
+fi
