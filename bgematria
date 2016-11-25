@@ -9,21 +9,25 @@
 #May 2016                                  #
 ############################################
 
-############################################
-#               Change Log                 #
-############################################
-# 0.3 - Fixed bug with doubles only getting#
-# counted once if more than 1 appears      #
-# 0.3 - Created precheck for proper opts.  #
-#                                          #
-# 0,2 - add clean log option               #
-# 0.2 - added support for double letters   #
-#                                          #
-# 0.1 - Initial write out                  #
-############################################
+
+
+####################################################
+#               Change Log                         #
+####################################################
+# 11/24 - 0.4 - rewrite to allow multi word        #
+# 11/22 - 0.3.2 - Fixed fatal bug that snuck in    #
+# 05/10 - 0.3 - Fixed bug with doubles only getting#
+#         counted once if more than 1 appears      #
+# 05/09 - 0.3 - Created precheck for proper opts.  #
+#                                                  #
+# 05/09 - 0,2 - add clean log option               #
+# 05/07 - 0.2 - added support for double letters   #
+#                                                  #
+# 05/04 - 0.1 - Initial write out                  #
+####################################################
 
 ############################################
-## Ideas for expanding functionality	  ##
+## Ideas for expanding functionality      ##
 ##!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!##
 ## Ability to expand multiple words into  ##
 ## array elements and compute each one    ##
@@ -41,18 +45,17 @@
 ##                                        ##
 ## Ability to print out to stdout value   ##
 ## associative array for specified system ##
-############################################			
+############################################
 
 print_usage()
 {
   echo "Usage: $(basename $0)"
   echo "-d | --debug: turn debugging on"
   echo "-l | --log: to be used during debugging to output to log file"
-  echo "-c | --clean-log: remove previous log data" 
-  echo "-w | --word: specify the word to analyse"
+  echo "-c | --clean-log: remove previous log data"
+  echo "-w | --word word1 word2 word3 etc.: specify the word(s) to analyse"
   exit 0
 }
-
 
 if [ "${1}" != "" ] && [ "${1}" != "-h" ] && [ "${1}" != "--help" ] && [ "${1}" != "-d" ] && [ "${1}" != "--debug" ] && [ "${1}" != "-c" ] && [ "${1}" != "--clean-log" ] && [ "${1}" != "-w" ] && [ "${1}" != "--word" ]; then
   print_usage
@@ -65,7 +68,7 @@ fi
 if [ "${1}" = "--debug" ] || [ "${1}" = "-d" ]; then
   shift
   DEBUG="true"
-  set -x 
+  set -x
 fi
 
 if [ "${DEBUG}" = "true" ] && [ "${1}" != "-l" ] && [ "${1}" != "--log" ] && [ "${1}" != "-w" ] && [ "${1}" != "--word" ]; then
@@ -76,9 +79,9 @@ if [ "${DEBUG}" = "true" ]; then
   if [ "${1}" = "--log" ] || [ "${1}" = "-l" ]; then
     LOGGING="true"
     shift
-    DEBUGLOG=/tmp/$(basename $0.err) 
+    DEBUGLOG=/tmp/$(basename $0.err)
     echo "Debugging on..."
-    echo "Logging to /tmp/$(basename $0.err)" 
+    echo "Logging to /tmp/$(basename $0.err)"
     echo "DEBUG INFO START $(date)" > $DEBUGLOG
     exec 2> $DEBUGLOG
   else
@@ -94,12 +97,12 @@ fi
 if [ "${1}" = "-c" ] || [ "${1}" = "--clean-log" ]; then
  echo "Removing debug log"
  if [ -e /tmp/$(basename $0.err) ]; then
-   rm -f /tmp/$(basename $0.err) 
+   rm -f /tmp/$(basename $0.err)
   if [ ! -e /tmp/$(basename $0.err) ]; then
    echo "Complete"
    exit 0
   else
-   echo "Failed" 
+   echo "Failed"
    exit 1
   fi
  else
@@ -108,59 +111,70 @@ if [ "${1}" = "-c" ] || [ "${1}" = "--clean-log" ]; then
  fi
 fi
 
-
 #Declare an associative array for VALUES.
 declare -A VALUES
 
 VALUES=( ["a"]=1 ["b"]=2 ["g"]=3 ["d"]=4 ["h"]=5 ["e"]=5 ["v"]=6 ["u"]=6 ["z"]=7 ["ch"]=8 ["t"]=9 ["y"]=10 ["i"]=10 ["j"]=10 ["k"]=20 ["l"]=30 ["m"]=40 ["n"]=50 ["s"]=60 ["Aa"]=70 ["o"]=70 ["p"]=80 ["f"]=80 ["tz"]=90 ["q"]=100 ["r"]=200 ["sh"]=300 ["th"]=400 ["A"]=1 ["B"]=2 ["G"]=3 ["D"]=4 ["H"]=5 ["E"]=5 ["V"]=6 ["U"]=6 ["Z"]=7 ["Ch"]=8 ["T"]=9 ["Y"]=10 ["I"]=10 ["J"]=10 ["K"]=20 ["L"]=30 ["M"]=40 ["N"]=50 ["S"]=60 ["aa"]=70 ["O"]=70 ["P"]=80 ["F"]=80 ["Tz"]=90 ["Q"]=100 ["R"]=200 ["Sh"]=300 ["Th"]=400 )
 
-TOTAL=0 
+TOTAL=0
+declare -A TOTALARRAY
+GRANDTOTAL=0
+WORDCOUNT=0
 
 if [ "${1}" = "--word" ] || [ "${1}" = "-w" ]; then
- shift
- if [ ! -z "${1}" ]; then
-  declare -r WORD=("${1}") #Declare and set WORD to readonly 
- else
-  echo "Need to put a word"
-  exit 1
- fi
-fi
-
-#Set S_WORD to word. S_WORD is editable.
-S_WORD="$WORD"
-
-#Check for double characters occuring in $WORD via $S_WORD, add their value and remove the Character from S_WORD
-for double in "${!VALUES[@]}"; do
- if [ "${#double}" -gt 1 ]; then
- #  if [ ! -z `echo "$S_WORD" | grep "$double"` ]; then
-      while [ ! -z `echo "$S_WORD" | grep "$double"` ]; do
-      	let TOTAL+="${VALUES[$double]}"
-      	S_WORD=$(echo $S_WORD | sed "s/$double//")
-      done
-  # fi
- fi
-done
-
-
-#Seperate the remaining characters of S_WORD into individual array elements
-LETTERS=$(echo $S_WORD | fold -w1)
-
-#Iterate over remaining characters and add their value.
-if [ ${#LETTERS} -gt 0 ]; then
- for single in ${LETTERS[@]}; do
-  for value in "${!VALUES[@]}"; do
-   if [ "$single" = "$value" ]; then
-    let TOTAL+="${VALUES[$value]}"
-   fi
-  done
- done
-fi
-
-if [ $TOTAL -gt 0 ]; then
- echo ""
- echo "$WORD = $TOTAL"
- exit 0
-else
- echo "TOTAL has 0 for a value"
- exit 1
+	echo "Calculating word(s)"
+	shift
+	#Check if there is a word specified
+	while [ ! -z "${1}" ]; do
+		WORDCOUNT+=1
+		WORD="${1}"
+		S_WORD="$WORD"
+		#Iterate over double characters
+		for double in "${!VALUES[@]}"; do
+			if [ "${#double}" -gt 1 ]; then
+				while [ ! -z `echo "$S_WORD" | grep "$double"` ]; do
+					let TOTAL+="${VALUES[$double]}"
+					S_WORD=$(echo $S_WORD | sed "s/$double//")
+				done
+			fi
+		done
+		#Seperate remaining letters of S_WORD into array
+		LETTERS=$(echo $S_WORD | fold -w1)
+		#Iterate...
+		if [ ${#LETTERS} -gt 0 ]; then
+			for single in ${LETTERS[@]}; do
+				for value in "${!VALUES[@]}"; do
+					if [ "$single" = "$value" ]; then
+						let TOTAL+="${VALUES[$value]}"
+					fi
+				done
+			done
+		fi
+		#Add $WORD its $TOTAL to array
+		TOTALARRAY["$WORD"]=$TOTAL
+		#Reset Variables for next run.
+		TOTAL=0
+		WORD=""
+		S_WORD="$WORD"
+		#Move on to next
+		shift
+	done
+	#Display total of each individual word and calculate total of all words
+	for word in "${!TOTALARRAY[@]}"; do
+		wordv="${TOTALARRAY[$word]}"
+		echo "$word = $wordv"
+		let GRANDTOTAL+=$wordv
+	done
+	if [ "$GRANDTOTAL" -gt 0 ] && [ "$WORDCOUNT" -gt 1 ]; then
+		echo "=================================="
+		echo "Combined Total : $GRANDTOTAL"
+		exit 0
+	elif [ "$GRANDTOTAL" -gt 0 ] && [ "$WORDCOUNT" -eq 1 ]; then
+		exit 0
+	else
+		#This should not ever happen.
+		echo "Total for all words is <= 0"
+		echo "+++Divide By Cucumber Error: Please Reinstall Universe And Reboot+++"
+		exit 1
+	fi
 fi
